@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Teams Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Race Teams Solver</h1>
+    <div>
+        <input type="number" id="teams" placeholder="Number of teams">
+        <input type="number" id="races" placeholder="Number of races">
+        <input type="number" id="boatsPerRace" placeholder="Boats per race">
+        <input type="text" id="goodCounts" placeholder="Good counts (comma-separated)">
+        <button onclick="solve()">Solve</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        function createRaceArray(teams, races, boatsPerRace) {
+            let raceArray = [];
+            let teamCounter = 0;
+            
+            for (let i = 0; i < races; i++) {
+                let race = [];
+                for (let j = 0; j < boatsPerRace; j++) {
+                    race.push(teamCounter);
+                    teamCounter = (teamCounter + 1) % teams;
+                }
+                raceArray.push(race);
+            }
+            
+            return raceArray;
+        }
+
+        function calculateCoOccurrence(raceArray, teams) {
+            let coOccurrence = Array(teams).fill().map(() => Array(teams).fill(0));
+            
+            for (let race of raceArray) {
+                for (let i = 0; i < race.length; i++) {
+                    for (let j = i + 1; j < race.length; j++) {
+                        let team1 = race[i], team2 = race[j];
+                        coOccurrence[team1][team2]++;
+                        coOccurrence[team2][team1]++;
+                    }
+                }
+            }
+            
+            return coOccurrence;
+        }
+
+        function countBadCoOccurrenceCounts(matrix, goodCounts) {
+            return matrix.reduce((count, row, i) => 
+                count + row.reduce((rowCount, elem, j) => 
+                    i !== j && !goodCounts.includes(elem) ? rowCount + 1 : rowCount, 0), 0);
+        }
+
+	function performSwapOperation(raceArray, teams, goodCounts) {
+            let positions = raceArray.flatMap((row, i) => row.map((_, j) => [i, j]));
+        
+            let [i1, j1] = positions[Math.floor(Math.random() * positions.length)];
+        
+            // Randomly select another row
+            let otherRows = raceArray.map((_, i) => i).filter(i => i !== i1);
+            let i2 = otherRows[Math.floor(Math.random() * otherRows.length)];
+        
+            let j2 = Math.floor(Math.random() * raceArray[i2].length);
+        
+            if (!raceArray[i2].includes(raceArray[i1][j1]) && !raceArray[i1].includes(raceArray[i2][j2])) {
+                let originalBadCounts = countBadCoOccurrenceCounts(calculateCoOccurrence(raceArray, teams), goodCounts);
+        
+                [raceArray[i1][j1], raceArray[i2][j2]] = [raceArray[i2][j2], raceArray[i1][j1]];
+        
+                let newCoOccurrence = calculateCoOccurrence(raceArray, teams);
+                let newBadCounts = countBadCoOccurrenceCounts(newCoOccurrence, goodCounts);
+        
+                if (newBadCounts > originalBadCounts) {
+                    [raceArray[i1][j1], raceArray[i2][j2]] = [raceArray[i2][j2], raceArray[i1][j1]];
+                }
+            }
+        }
+
+	function solve() {
+            let teams = parseInt(document.getElementById('teams').value);
+            let races = parseInt(document.getElementById('races').value);
+            let boatsPerRace = parseInt(document.getElementById('boatsPerRace').value);
+            let goodCounts = document.getElementById('goodCounts').value.split(',').map(Number);
+        
+            let raceArray = createRaceArray(teams, races, boatsPerRace);
+        
+            const MAX_ITERATIONS = 1000000; // Prevent infinite loop
+            let iterations = 0;
+        
+            while (iterations < MAX_ITERATIONS) {
+                performSwapOperation(raceArray, teams, goodCounts);
+                if (countBadCoOccurrenceCounts(calculateCoOccurrence(raceArray, teams), goodCounts) === 0) {
+                    break;
+                }
+                iterations++;
+            }
+        
+            if (iterations === MAX_ITERATIONS) {
+                alert("Maximum iterations reached. A perfect solution may not exist for these parameters.");
+            }
+        
+            raceArray.sort(() => Math.random() - 0.5);
+        
+            let coOccurrence = calculateCoOccurrence(raceArray, teams);
+        
+            displayResults(raceArray, coOccurrence);
+        }
+
+        function displayResults(raceArray, coOccurrence) {
+            let resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '';
+            
+            let raceTable = document.createElement('table');
+            raceTable.innerHTML = '<tr><th colspan="' + raceArray[0].length + '">Race Array</th></tr>';
+            for (let race of raceArray) {
+                let row = document.createElement('tr');
+                for (let team of race) {
+                    let cell = document.createElement('td');
+                    cell.textContent = team;
+                    row.appendChild(cell);
+                }
+                raceTable.appendChild(row);
+            }
+            resultDiv.appendChild(raceTable);
+            
+            let coOccurrenceTable = document.createElement('table');
+            coOccurrenceTable.innerHTML = '<tr><th colspan="' + coOccurrence.length + '">Co-occurrence Matrix</th></tr>';
+            for (let row of coOccurrence) {
+                let tableRow = document.createElement('tr');
+                for (let count of row) {
+                    let cell = document.createElement('td');
+                    cell.textContent = count;
+                    tableRow.appendChild(cell);
+                }
+                coOccurrenceTable.appendChild(tableRow);
+            }
+            resultDiv.appendChild(coOccurrenceTable);
+        }
+    </script>
+</body>
+</html>
